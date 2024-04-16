@@ -16,7 +16,6 @@ interface PhotoDao {
     @Upsert
     suspend fun updatePhotos(entityPhoto: EntityPhoto)
 
-
     @Query("select  * from EntityPhoto")
     fun getPhotosPagingList(): PagingSource<Int, EntityPhoto>
 

@@ -17,7 +17,7 @@ interface PhotoDao {
     suspend fun updatePhotos(entityPhoto: EntityPhoto)
 
 
-    @Query("select  * from EntityPhoto order by updatedAt DESC")
+    @Query("select  * from EntityPhoto")
     fun getPhotosPagingList(): PagingSource<Int, EntityPhoto>
 
     @Query("Delete From EntityPhoto")

@@ -10,8 +10,8 @@ interface NetworkApi {
         clientId: String = "rAnMq6xp5vmoDkAhC-NU3tog8YqDgN9bxEoxw1dG89k",
         @Query("page")
         page: Int = 1,
-        @Query("page")
-        perPage: Int = 10,
+        @Query("per_page")
+        perPage: Int = 20,
         @Query("order_by")
         orderBy: String = "latest",
     ): ArrayList<Photos>

@@ -16,8 +16,6 @@ class SampleActivity : AppCompatActivity(){
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
-        binding.btnPress.setOnClickListener {
-            viewModel.getPhotos()
-        }
+
     }
 }

@@ -9,14 +9,15 @@ import com.tvisha.imageviewer.BuildConfig
 
 @Database(
     entities = [
-
         EntityPhoto::class,
+        RemoteKeys::class
     ], version = 9, exportSchema = true
 )
 
 abstract class PhotoDatabase : RoomDatabase() {
 
     abstract val photoDao: PhotoDao
+    abstract val remoteKeysDao: RemoteKeysDao
 
     companion object {
         private val DATABASE_NAME = "com_tvisha_photo"

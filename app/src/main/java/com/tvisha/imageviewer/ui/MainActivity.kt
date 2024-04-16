@@ -2,10 +2,14 @@ package com.tvisha.imageviewer.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.Image
 import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.Log
+import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -28,8 +32,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.items
@@ -42,8 +51,20 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
+import com.tvisha.imageviewer.R
+import com.tvisha.imageviewer.TAG
 import com.tvisha.imageviewer.ui.theme.ImageViewerTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileNotFoundException
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -129,39 +150,63 @@ fun MainScreen() {
                     ) {
                         var isImageLoading by remember { mutableStateOf(false) }
 
-                        val painter = rememberAsyncImagePainter(
-                            model = photo.url,
-                        )
+//                        val painter = rememberAsyncImagePainter(
+//                            model = photo.url,
+//                        )
 
-                        isImageLoading = when (painter.state) {
-                            is AsyncImagePainter.State.Loading -> true
-                            else -> false
-                        }
+//                        isImageLoading = when (painter.state) {
+//                            is AsyncImagePainter.State.Loading -> true
+//                            else -> false
+//                        }
 
                         Box(
                             contentAlignment = Alignment.Center
                         ) {
-                            Image(
-                                modifier = Modifier
-                                    .padding(horizontal = 6.dp, vertical = 3.dp)
-                                    .height(screenHeight / 4)
-                                    .width(screenWidth / 2)
-                                    .clip(RoundedCornerShape(8.dp)),
-                                painter = painter,
-                                contentDescription = "Poster Image",
-                                contentScale = ContentScale.FillBounds,
-                            )
 
-                            if (isImageLoading) {
+                            if(photo.localPath.isBlank()){
                                 CircularProgressIndicator(
                                     modifier = Modifier
-                                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                                        .height(screenHeight / 4)
+                                        .width(screenWidth / 2),
                                     color = MaterialTheme.colors.primary,
                                 )
+                            }else {
+                                ImageListItem(
+                                    context = LocalContext.current,
+                                    fileName = photo.localPath,
+                                    modifier = Modifier
+                                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                                        .height(screenHeight / 4)
+                                        .width(screenWidth / 2)
+                                        .clip(RoundedCornerShape(8.dp))
+                                )
                             }
+//                            LoadNetworkImage(url = photo.url, modifier = Modifier
+//                                .padding(horizontal = 6.dp, vertical = 3.dp)
+//                                .height(screenHeight / 4)
+//                                .width(screenWidth / 2)
+//                                .clip(RoundedCornerShape(8.dp)),)
+//                            Image(
+//                                modifier = Modifier
+//                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+//                                    .height(screenHeight / 4)
+//                                    .width(screenWidth / 2)
+//                                    .clip(RoundedCornerShape(8.dp)),
+//                                painter = painter,
+//                                contentDescription = "Poster Image",
+//                                contentScale = ContentScale.FillBounds,
+//                            )
+
+//                            if (isImageLoading) {
+//                                CircularProgressIndicator(
+//                                    modifier = Modifier
+//                                        .padding(horizontal = 6.dp, vertical = 3.dp),
+//                                    color = MaterialTheme.colors.primary,
+//                                )
+//                            }
                         }
                     }
-                    Divider()
                 }
             }
 
@@ -246,3 +291,123 @@ fun MainScreen() {
         }
     )
 }
+
+fun loadImageFromInternalStorage(context: Context, fileName: String): Bitmap? {
+    return try {
+        val fis: FileInputStream = context.openFileInput(fileName)
+        val bitmap = BitmapFactory.decodeStream(fis)
+        fis.close()
+        Log.d("TAG", "Image loaded from internal storage: $fileName")
+        bitmap
+    } catch (e: FileNotFoundException) {
+        Log.e("TAG", "File not found: " + e.message)
+        null
+    } catch (e: java.lang.Exception) {
+        Log.e("TAG", "Error loading image from internal storage: " + e.message)
+        null
+    }
+}
+
+@Composable
+fun ImageListItem(context: Context, fileName: String, modifier: Modifier) {
+    val bitmap = loadImageFromInternalStorage(context =context, fileName = fileName)
+    bitmap?.let {
+        val painter: Painter = BitmapPainter(bitmap.asImageBitmap())
+        Image(
+            painter = painter,
+            contentDescription = null, // Provide proper content description
+            contentScale = ContentScale.Crop,
+            modifier = modifier // Adjust size as needed
+        )
+    }
+}
+
+
+@Composable
+fun LoadNetworkImage(url: String, modifier: Modifier = Modifier) {
+    var image by remember { mutableStateOf<Bitmap?>(null) }
+
+    // Load the image using a coroutine
+    LaunchedEffect(url) {
+        val inputStream = fetchImage(url)
+        Log.d("imdfg", "out $inputStream")
+
+        inputStream?.let {
+            Log.d("imdfg", "success")
+
+            image =  BitmapFactory.decodeStream(it)
+
+
+        }
+    }
+
+    // Display the image if loaded, otherwise display a placeholder or error image
+    image?.let {
+        Log.d("imdfg", "show $it")
+
+        Image(
+            bitmap = it.asImageBitmap(),
+            contentDescription = null, // Content description for accessibility, set to null for now
+            modifier = modifier,
+        )
+    } ?: run {
+        // Placeholder or error image
+        Box(
+            modifier = modifier,
+        ) {
+            Image(
+                painterResource(R.drawable.default_pic),
+                contentDescription = "",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+// Function to fetch image from URL
+private suspend fun fetchImage(urlString: String): InputStream? {
+   return withContext(Dispatchers.IO) {
+         try {
+
+
+            val url = URL(urlString)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 30000 // Set your desired timeout
+            connection.readTimeout = 30000 // Set your desired timeout
+            connection.instanceFollowRedirects = true
+            connection.connect()
+
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                Log.d("imdfg", "$urlString")
+
+                connection.inputStream
+            } else {
+                Log.d("imdfg", "null $urlString")
+
+                null
+            }
+
+        } catch (e: Exception) {
+            Log.d("imdfg", e.toString())
+            null
+        }
+    }
+
+}
+
+// Custom NetworkImage class to handle InputStream
+//private class NetworkImage(private val inputStream: InputStream) : Painter() {
+//    override val intrinsicSize: android.graphics.Size
+//        get() = android.graphics.Size(0, 0)
+//
+//    override fun draw(
+//        canvas: androidx.compose.ui.graphics.Canvas,
+//        size: androidx.compose.ui.geometry.Size
+//    ) {
+//        // Draw the image on the canvas
+//        // You need to implement this based on the input stream and canvas APIs
+//        // This is just a placeholder implementation
+//    }
+//}
+

@@ -1,13 +1,17 @@
 package com.tvisha.imageviewer.ui
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
+import android.os.Parcel
+import android.os.Parcelable
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
@@ -22,15 +26,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.paging.compose.items
+//import androidx.paging.compose.items
 
 
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
+import androidx.paging.compose.LazyPagingItems
 import coil.compose.AsyncImagePainter
 import coil.compose.rememberAsyncImagePainter
 import com.tvisha.imageviewer.ui.theme.ImageViewerTheme
@@ -54,17 +61,63 @@ class MainActivity : ComponentActivity() {
 }
 //rAnMq6xp5vmoDkAhC-NU3tog8YqDgN9bxEoxw1dG89k
 //https://api.unsplash.com/photos/?client_id=YOUR_ACCESS_KEY page per_page order_by latest
+fun <T : Any> LazyGridScope.items(
+    items: LazyPagingItems<T>,
+    key: ((item: T) -> Any)? = null,
+    itemContent: @Composable LazyGridItemScope.(item: T?) -> Unit
+) {
+    items(
+        count = items.itemCount,
+        key = if (key == null) null else { index ->
+            val item = items.peek(index)
+            if (item == null) {
+                PagingPlaceholderKey(index)
+            } else {
+                key(item)
+            }
+        }
+    ) { index ->
+        itemContent(items[index])
+    }
+}
 
+@SuppressLint("BanParcelableUsage")
+private data class PagingPlaceholderKey(private val index: Int) : Parcelable {
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeInt(index)
+    }
+
+    override fun describeContents(): Int {
+        return 0
+    }
+
+    companion object {
+        @Suppress("unused")
+        @JvmField
+        val CREATOR: Parcelable.Creator<PagingPlaceholderKey> =
+            object : Parcelable.Creator<PagingPlaceholderKey> {
+                override fun createFromParcel(parcel: Parcel) =
+                    PagingPlaceholderKey(parcel.readInt())
+
+                override fun newArray(size: Int) = arrayOfNulls<PagingPlaceholderKey?>(size)
+            }
+    }
+}
 @Composable
 fun MainScreen() {
-
+    val density = LocalDensity.current;
+    val configuration = LocalConfiguration.current;
+    val screenWidthPx = with(density) {configuration.screenWidthDp.dp}
     val mainViewmodel: MainViewmodel = viewModel()
     Log.d("ganga", "${mainViewmodel}")
 
     val movies = mainViewmodel.getPhotosPagingFlow().collectAsLazyPagingItems()
-
-    LazyColumn {
-        this.items(
+    val noOfColumns = 3
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(noOfColumns),
+        modifier = Modifier.padding(8.dp)
+    ) {
+        items(
             movies
         ) { movie ->
             movie?.let {
@@ -92,7 +145,7 @@ fun MainScreen() {
                             modifier = Modifier
                                 .padding(horizontal = 6.dp, vertical = 3.dp)
                                 .height(115.dp)
-                                .width(77.dp)
+                                .width(screenWidthPx/noOfColumns)
                                 .clip(RoundedCornerShape(8.dp)),
                             painter = painter,
                             contentDescription = "Poster Image",
@@ -107,22 +160,19 @@ fun MainScreen() {
                             )
                         }
                     }
-                    Text(
-                        modifier = Modifier
-                            .padding(vertical = 18.dp, horizontal = 8.dp),
-                        text =it.id
-                    )
                 }
                 Divider()
             }
         }
 
         val loadState = movies.loadState.mediator
-        item {
+        item (
+
+                ){
             if (loadState?.refresh == LoadState.Loading) {
                 Column(
                     modifier = Modifier
-                        .fillParentMaxSize(),
+                        .fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
@@ -158,7 +208,7 @@ fun MainScreen() {
                 val modifier = if (isPaginatingError) {
                     Modifier.padding(8.dp)
                 } else {
-                    Modifier.fillParentMaxSize()
+                    Modifier.fillMaxSize()
                 }
                 Column(
                     modifier = modifier,

@@ -9,6 +9,7 @@ import androidx.paging.LoadType
 import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
 import androidx.room.withTransaction
+import com.google.gson.Gson
 import com.tvisha.imageviewer.TAG
 import com.tvisha.imageviewer.database.EntityPhoto
 import com.tvisha.imageviewer.database.EntityPhotoUpdate
@@ -55,6 +56,8 @@ class PhotosRemoteMediator(
 
             LoadType.APPEND -> {
                 val remoteKeys = getRemoteKeyForLastItem(state)
+                Log.d("PhotosRemoteMediator", "append ${Gson().toJson(remoteKeys)}")
+
                 val nextKey = remoteKeys?.nextKey
                 nextKey
                     ?: return MediatorResult.Success(endOfPaginationReached = remoteKeys != null)
@@ -97,11 +100,11 @@ class PhotosRemoteMediator(
                 }
             }
 
-            MainScope().launch(Dispatchers.IO) {
-                photoDownloadTask(
-                    context, apiResponse
-                )
-            }
+//            MainScope().launch(Dispatchers.IO) {
+//                photoDownloadTask(
+//                    context, apiResponse
+//                )
+//            }
 
             return MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
 
@@ -170,13 +173,13 @@ class PhotosRemoteMediator(
     private suspend fun photoDownloadTask(context: Context, photosList: ArrayList<Photos>){
 
             photosList.forEach { photo ->
-//                if(!photoDatabase.photoDao.isLocalPathExists(photo.id)) {
+                if(!photoDatabase.photoDao.isLocalPathExists(photo.id)) {
                     val bitmap = downloadPhoto(photo.urls.regular)
                     bitmap?.let {
                         val localPath = saveBitmap(context = context, bitmap = it, id = photo.id)
                         photoDatabase.photoDao.updatePhotos(EntityPhoto(id = photo.id, url = photo.urls.regular, createdAt = photo.createdAt, updatedAt = photo.updatedAt, localPath = localPath))
                     }
-//                }
+                }
             }
 
     }

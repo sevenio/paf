@@ -19,7 +19,9 @@ import com.tvisha.imageviewer.network.Photos
 import com.tvisha.imageviewer.network.Urls
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okio.IOException
 import retrofit2.HttpException
 import java.io.FileOutputStream
@@ -171,12 +173,23 @@ class PhotosRemoteMediator(
 
             photosList.forEach { photo ->
 //                if(!photoDatabase.photoDao.isLocalPathExists(photo.id)) {
+                withContext(Dispatchers.IO) {
+
                     val bitmap = downloadPhoto(photo.urls.regular)
                     bitmap?.let {
                         val localPath = saveBitmap(context = context, bitmap = it, id = photo.id)
-                        photoDatabase.photoDao.updatePhotos(EntityPhoto(id = photo.id, url = photo.urls.regular, createdAt = photo.createdAt, updatedAt = photo.updatedAt, localPath = localPath))
+                        photoDatabase.photoDao.updatePhotos(
+                            EntityPhoto(
+                                id = photo.id,
+                                url = photo.urls.regular,
+                                createdAt = photo.createdAt,
+                                updatedAt = photo.updatedAt,
+                                localPath = localPath
+                            )
+                        )
                     }
 //                }
+                }
             }
 
     }

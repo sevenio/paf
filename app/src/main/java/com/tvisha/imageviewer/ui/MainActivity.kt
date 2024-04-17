@@ -71,7 +71,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             ImageViewerTheme {
-                // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
@@ -83,48 +82,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-fun <T : Any> LazyGridScope.items(
-    items: LazyPagingItems<T>,
-    key: ((item: T) -> Any)? = null,
-    itemContent: @Composable LazyGridItemScope.(item: T?) -> Unit
-) {
-    items(
-        count = items.itemCount,
-        key = if (key == null) null else { index ->
-            val item = items.peek(index)
-            if (item == null) {
-                PagingPlaceholderKey(index)
-            } else {
-                key(item)
-            }
-        }
-    ) { index ->
-        itemContent(items[index])
-    }
-}
 
-@SuppressLint("BanParcelableUsage")
-private data class PagingPlaceholderKey(private val index: Int) : Parcelable {
-    override fun writeToParcel(parcel: Parcel, flags: Int) {
-        parcel.writeInt(index)
-    }
-
-    override fun describeContents(): Int {
-        return 0
-    }
-
-    companion object {
-        @Suppress("unused")
-        @JvmField
-        val CREATOR: Parcelable.Creator<PagingPlaceholderKey> =
-            object : Parcelable.Creator<PagingPlaceholderKey> {
-                override fun createFromParcel(parcel: Parcel) =
-                    PagingPlaceholderKey(parcel.readInt())
-
-                override fun newArray(size: Int) = arrayOfNulls<PagingPlaceholderKey?>(size)
-            }
-    }
-}
 
 @Composable
 fun MainScreen() {
@@ -148,27 +106,19 @@ fun MainScreen() {
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        var isImageLoading by remember { mutableStateOf(false) }
-
-//                        val painter = rememberAsyncImagePainter(
-//                            model = photo.url,
-//                        )
-
-//                        isImageLoading = when (painter.state) {
-//                            is AsyncImagePainter.State.Loading -> true
-//                            else -> false
-//                        }
 
                         Box(
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                                .height(screenHeight / 4)
+                                .width(screenWidth / 2),
                         ) {
 
                             if(photo.localPath.isBlank()){
                                 CircularProgressIndicator(
                                     modifier = Modifier
-                                        .padding(horizontal = 6.dp, vertical = 3.dp)
-                                        .height(screenHeight / 4)
-                                        .width(screenWidth / 2),
+                                        .padding(horizontal = 6.dp, vertical = 3.dp),
                                     color = MaterialTheme.colors.primary,
                                 )
                             }else {
@@ -182,29 +132,7 @@ fun MainScreen() {
                                         .clip(RoundedCornerShape(8.dp))
                                 )
                             }
-//                            LoadNetworkImage(url = photo.url, modifier = Modifier
-//                                .padding(horizontal = 6.dp, vertical = 3.dp)
-//                                .height(screenHeight / 4)
-//                                .width(screenWidth / 2)
-//                                .clip(RoundedCornerShape(8.dp)),)
-//                            Image(
-//                                modifier = Modifier
-//                                    .padding(horizontal = 6.dp, vertical = 3.dp)
-//                                    .height(screenHeight / 4)
-//                                    .width(screenWidth / 2)
-//                                    .clip(RoundedCornerShape(8.dp)),
-//                                painter = painter,
-//                                contentDescription = "Poster Image",
-//                                contentScale = ContentScale.FillBounds,
-//                            )
 
-//                            if (isImageLoading) {
-//                                CircularProgressIndicator(
-//                                    modifier = Modifier
-//                                        .padding(horizontal = 6.dp, vertical = 3.dp),
-//                                    color = MaterialTheme.colors.primary,
-//                                )
-//                            }
                         }
                     }
                 }
@@ -292,6 +220,49 @@ fun MainScreen() {
     )
 }
 
+fun <T : Any> LazyGridScope.items(
+    items: LazyPagingItems<T>,
+    key: ((item: T) -> Any)? = null,
+    itemContent: @Composable LazyGridItemScope.(item: T?) -> Unit
+) {
+    items(
+        count = items.itemCount,
+        key = if (key == null) null else { index ->
+            val item = items.peek(index)
+            if (item == null) {
+                PagingPlaceholderKey(index)
+            } else {
+                key(item)
+            }
+        }
+    ) { index ->
+        itemContent(items[index])
+    }
+}
+
+@SuppressLint("BanParcelableUsage")
+private data class PagingPlaceholderKey(private val index: Int) : Parcelable {
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeInt(index)
+    }
+
+    override fun describeContents(): Int {
+        return 0
+    }
+
+    companion object {
+        @Suppress("unused")
+        @JvmField
+        val CREATOR: Parcelable.Creator<PagingPlaceholderKey> =
+            object : Parcelable.Creator<PagingPlaceholderKey> {
+                override fun createFromParcel(parcel: Parcel) =
+                    PagingPlaceholderKey(parcel.readInt())
+
+                override fun newArray(size: Int) = arrayOfNulls<PagingPlaceholderKey?>(size)
+            }
+    }
+}
+
 fun loadImageFromInternalStorage(context: Context, fileName: String): Bitmap? {
     return try {
         val fis: FileInputStream = context.openFileInput(fileName)
@@ -323,91 +294,4 @@ fun ImageListItem(context: Context, fileName: String, modifier: Modifier) {
 }
 
 
-@Composable
-fun LoadNetworkImage(url: String, modifier: Modifier = Modifier) {
-    var image by remember { mutableStateOf<Bitmap?>(null) }
-
-    // Load the image using a coroutine
-    LaunchedEffect(url) {
-        val inputStream = fetchImage(url)
-        Log.d("imdfg", "out $inputStream")
-
-        inputStream?.let {
-            Log.d("imdfg", "success")
-
-            image =  BitmapFactory.decodeStream(it)
-
-
-        }
-    }
-
-    // Display the image if loaded, otherwise display a placeholder or error image
-    image?.let {
-        Log.d("imdfg", "show $it")
-
-        Image(
-            bitmap = it.asImageBitmap(),
-            contentDescription = null, // Content description for accessibility, set to null for now
-            modifier = modifier,
-        )
-    } ?: run {
-        // Placeholder or error image
-        Box(
-            modifier = modifier,
-        ) {
-            Image(
-                painterResource(R.drawable.default_pic),
-                contentDescription = "",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-    }
-}
-
-// Function to fetch image from URL
-private suspend fun fetchImage(urlString: String): InputStream? {
-   return withContext(Dispatchers.IO) {
-         try {
-
-
-            val url = URL(urlString)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 30000 // Set your desired timeout
-            connection.readTimeout = 30000 // Set your desired timeout
-            connection.instanceFollowRedirects = true
-            connection.connect()
-
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                Log.d("imdfg", "$urlString")
-
-                connection.inputStream
-            } else {
-                Log.d("imdfg", "null $urlString")
-
-                null
-            }
-
-        } catch (e: Exception) {
-            Log.d("imdfg", e.toString())
-            null
-        }
-    }
-
-}
-
-// Custom NetworkImage class to handle InputStream
-//private class NetworkImage(private val inputStream: InputStream) : Painter() {
-//    override val intrinsicSize: android.graphics.Size
-//        get() = android.graphics.Size(0, 0)
-//
-//    override fun draw(
-//        canvas: androidx.compose.ui.graphics.Canvas,
-//        size: androidx.compose.ui.geometry.Size
-//    ) {
-//        // Draw the image on the canvas
-//        // You need to implement this based on the input stream and canvas APIs
-//        // This is just a placeholder implementation
-//    }
-//}
 

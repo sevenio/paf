@@ -65,22 +65,4 @@ class MainRepository(private val application: MainApplication) {
             )
         ).flow
 
-
-
-
-
-    fun loadImageFromInternalStorage(context: Context, fileName: String, imageView: ImageView) {
-        try {
-            val fis: FileInputStream = context.openFileInput(fileName)
-            val bitmap = BitmapFactory.decodeStream(fis)
-            imageView.setImageBitmap(bitmap)
-            fis.close()
-            Log.d(TAG, "Image loaded from internal storage: $fileName")
-        } catch (e: FileNotFoundException) {
-            Log.e(TAG, "File not found: " + e.message)
-        } catch (e: java.lang.Exception) {
-            Log.e(TAG, "Error loading image from internal storage: " + e.message)
-        }
-    }
-
 }

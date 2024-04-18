@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
 import android.media.Image
 import android.os.Bundle
 import android.os.Parcel
@@ -46,6 +48,8 @@ import androidx.paging.compose.items
 
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -279,10 +283,31 @@ fun loadImageFromInternalStorage(context: Context, fileName: String): Bitmap? {
     }
 }
 
+private fun getBitmapFromImage(context: Context, drawable: Int): Bitmap {
+    val db = ContextCompat.getDrawable(context, drawable)
+    val bit = Bitmap.createBitmap(
+        db!!.intrinsicWidth, db.intrinsicHeight, Bitmap.Config.ARGB_8888
+    )
+    val canvas = Canvas(bit)
+    db.setBounds(0, 0, canvas.width, canvas.height)
+    db.draw(canvas)
+    return bit
+}
+
 @Composable
 fun ImageListItem(context: Context, fileName: String, modifier: Modifier) {
-    val bitmap = loadImageFromInternalStorage(context =context, fileName = fileName)
-    bitmap?.let {
+    var bitmap by remember{
+        mutableStateOf(getBitmapFromImage(context = context , drawable = R.drawable.default_pic))
+    }
+    LaunchedEffect(key1 = Unit){
+            withContext(Dispatchers.IO) {
+                loadImageFromInternalStorage(context = context, fileName = fileName)?.let {
+                    bitmap = it
+                }
+            }
+
+    }
+    bitmap.let {
         val painter: Painter = BitmapPainter(bitmap.asImageBitmap())
         Image(
             painter = painter,

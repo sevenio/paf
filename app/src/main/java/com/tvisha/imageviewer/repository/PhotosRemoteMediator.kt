@@ -17,10 +17,10 @@ import com.tvisha.imageviewer.database.PhotoDatabase
 import com.tvisha.imageviewer.database.RemoteKeys
 import com.tvisha.imageviewer.network.NetworkApi
 import com.tvisha.imageviewer.network.Photos
-import com.tvisha.imageviewer.network.Urls
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okio.IOException
 import retrofit2.HttpException
 import java.io.FileOutputStream
@@ -36,9 +36,7 @@ class PhotosRemoteMediator(
     private val photoDatabase: PhotoDatabase,
 ) : RemoteMediator<Int, EntityPhoto>() {
 
-    companion object{
-        const val PER_PAGE = 20
-    }
+
 
     override suspend fun load(
         loadType: LoadType,
@@ -56,8 +54,6 @@ class PhotosRemoteMediator(
 
             LoadType.APPEND -> {
                 val remoteKeys = getRemoteKeyForLastItem(state)
-                Log.d("PhotosRemoteMediator", "append ${Gson().toJson(remoteKeys)}")
-
                 val nextKey = remoteKeys?.nextKey
                 nextKey
                     ?: return MediatorResult.Success(endOfPaginationReached = remoteKeys != null)
@@ -65,16 +61,15 @@ class PhotosRemoteMediator(
         }
 
         try {
-            Log.d(TAG, "$page")
-//            val apiResponse = getPhotosArrayList(page = (page - 1) * PER_PAGE + 1)
+            Log.d(TAG, "$page ${loadType}")
             val apiResponse = networkApi.getPhotos(page = page)
             val endOfPaginationReached = apiResponse.isEmpty()
 
             photoDatabase.withTransaction {
-                if (loadType == LoadType.REFRESH) {
-                    photoDatabase.remoteKeysDao.clearRemoteKeys()
-                    photoDatabase.photoDao.clearAllPhotos()
-                }
+//                if (loadType == LoadType.REFRESH) {
+//                    photoDatabase.remoteKeysDao.clearRemoteKeys()
+//                    photoDatabase.photoDao.clearAllPhotos()
+//                }
                 val prevKey = if (page > 1) page - 1 else null
                 val nextKey = if (endOfPaginationReached) null else page + 1
                 val remoteKeys = apiResponse.map {
@@ -100,11 +95,11 @@ class PhotosRemoteMediator(
                 }
             }
 
-//            MainScope().launch(Dispatchers.IO) {
-//                photoDownloadTask(
-//                    context, apiResponse
-//                )
-//            }
+            MainScope().launch(Dispatchers.IO) {
+                photoDownloadTask(
+                    context, apiResponse
+                )
+            }
 
             return MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
 
@@ -118,21 +113,6 @@ class PhotosRemoteMediator(
         }
     }
 
-    private suspend fun getRemoteKeyClosestToCurrentPosition(state: PagingState<Int, EntityPhoto>): RemoteKeys? {
-        return state.anchorPosition?.let { position ->
-            state.closestItemToPosition(position)?.id?.let { id ->
-                photoDatabase.remoteKeysDao.getRemoteKeyByPhotoID(id)
-            }
-        }
-    }
-
-    private suspend fun getRemoteKeyForFirstItem(state: PagingState<Int, EntityPhoto>): RemoteKeys? {
-        return state.pages.firstOrNull {
-            it.data.isNotEmpty()
-        }?.data?.firstOrNull()?.let { photo ->
-            photoDatabase.remoteKeysDao.getRemoteKeyByPhotoID(photo.id)
-        }
-    }
 
     private suspend fun getRemoteKeyForLastItem(state: PagingState<Int, EntityPhoto>): RemoteKeys? {
         return state.pages.lastOrNull {
@@ -142,42 +122,28 @@ class PhotosRemoteMediator(
         }
     }
 
-    fun getPhotosArrayList(page: Int): ArrayList<Photos>{
-//        https://images.unsplash.com/photo-1713145868370-0b9c9bb58465?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w1OTA3ODV8MHwxfGFsbHw1MXx8fHx8fDJ8fDE3MTMyNjE2MjJ8&ixlib=rb-4.0.3&q=80&w=1080
-        val arrayList = arrayListOf<Photos>()
-        for (i in page  .. page + (PER_PAGE - 1)){
-            arrayList.add(Photos(id = i.toString(), createdAt = "", updatedAt = "", urls = Urls(regular = "https://images.unsplash.com/photo-1713145868370-0b9c9bb58465?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w1OTA3ODV8MHwxfGFsbHw1MXx8fHx8fDJ8fDE3MTMyNjE2MjJ8&ixlib=rb-4.0.3&q=80&w=1080"), assetType = "photo" ))
-        }
-        return arrayList
-
-    }
-//    suspend fun getPhotos(page: Int, pageSize: Int):ArrayList<Photos> {
-//        val response = networkApi.getPhotos(page = page, perPage = pageSize)
-//        val entityList = response.map {
-//            EntityPhoto(
-//                id = it.id,
-//                url = it.urls.regular,
-//                localPath = "",
-//                createdAt = it.createdAt,
-//                updatedAt = it.updatedAt
-//            )
-//        }
-//        photoDatabase.photoDao.insertPhotos(entityList)
-//        MainScope().launch(Dispatchers.IO) {
-//            entityList.forEach {
-//                async { photoDownloadTask(context, entityPhoto = it) }
-//            }
-//        }
-//        return response
-//    }
     private suspend fun photoDownloadTask(context: Context, photosList: ArrayList<Photos>){
 
             photosList.forEach { photo ->
-                if(!photoDatabase.photoDao.isLocalPathExists(photo.id)) {
-                    val bitmap = downloadPhoto(photo.urls.regular)
-                    bitmap?.let {
-                        val localPath = saveBitmap(context = context, bitmap = it, id = photo.id)
-                        photoDatabase.photoDao.updatePhotos(EntityPhoto(id = photo.id, url = photo.urls.regular, createdAt = photo.createdAt, updatedAt = photo.updatedAt, localPath = localPath))
+                withContext(Dispatchers.IO) {
+                    Log.d("ganga" , Gson().toJson(photo) + "${photoDatabase.photoDao.isLocalPathExists(photo.id)}")
+                    if (!photoDatabase.photoDao.isLocalPathExists(photo.id)) {
+                        Log.d("ganga" , "doenst exist " + Gson().toJson(photo) )
+
+                        val bitmap = downloadPhoto(photo.urls.regular)
+                        bitmap?.let {
+                            val localPath =
+                                saveBitmap(context = context, bitmap = it, id = photo.id)
+                            photoDatabase.photoDao.updatePhotos(
+                                EntityPhoto(
+                                    id = photo.id,
+                                    url = photo.urls.regular,
+                                    createdAt = photo.createdAt,
+                                    updatedAt = photo.updatedAt,
+                                    localPath = localPath
+                                )
+                            )
+                        }
                     }
                 }
             }

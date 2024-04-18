@@ -9,6 +9,7 @@ import androidx.paging.LoadType
 import androidx.paging.PagingState
 import androidx.paging.RemoteMediator
 import androidx.room.withTransaction
+import com.google.gson.Gson
 import com.tvisha.imageviewer.TAG
 import com.tvisha.imageviewer.database.EntityPhoto
 import com.tvisha.imageviewer.database.EntityPhotoUpdate
@@ -16,10 +17,8 @@ import com.tvisha.imageviewer.database.PhotoDatabase
 import com.tvisha.imageviewer.database.RemoteKeys
 import com.tvisha.imageviewer.network.NetworkApi
 import com.tvisha.imageviewer.network.Photos
-import com.tvisha.imageviewer.network.Urls
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okio.IOException
@@ -62,15 +61,15 @@ class PhotosRemoteMediator(
         }
 
         try {
-            Log.d(TAG, "$page")
+            Log.d(TAG, "$page ${loadType}")
             val apiResponse = networkApi.getPhotos(page = page)
             val endOfPaginationReached = apiResponse.isEmpty()
 
             photoDatabase.withTransaction {
-                if (loadType == LoadType.REFRESH) {
-                    photoDatabase.remoteKeysDao.clearRemoteKeys()
-                    photoDatabase.photoDao.clearAllPhotos()
-                }
+//                if (loadType == LoadType.REFRESH) {
+//                    photoDatabase.remoteKeysDao.clearRemoteKeys()
+//                    photoDatabase.photoDao.clearAllPhotos()
+//                }
                 val prevKey = if (page > 1) page - 1 else null
                 val nextKey = if (endOfPaginationReached) null else page + 1
                 val remoteKeys = apiResponse.map {
@@ -127,19 +126,24 @@ class PhotosRemoteMediator(
 
             photosList.forEach { photo ->
                 withContext(Dispatchers.IO) {
+                    Log.d("ganga" , Gson().toJson(photo) + "${photoDatabase.photoDao.isLocalPathExists(photo.id)}")
+                    if (!photoDatabase.photoDao.isLocalPathExists(photo.id)) {
+                        Log.d("ganga" , "doenst exist " + Gson().toJson(photo) )
 
-                    val bitmap = downloadPhoto(photo.urls.regular)
-                    bitmap?.let {
-                        val localPath = saveBitmap(context = context, bitmap = it, id = photo.id)
-                        photoDatabase.photoDao.updatePhotos(
-                            EntityPhoto(
-                                id = photo.id,
-                                url = photo.urls.regular,
-                                createdAt = photo.createdAt,
-                                updatedAt = photo.updatedAt,
-                                localPath = localPath
+                        val bitmap = downloadPhoto(photo.urls.regular)
+                        bitmap?.let {
+                            val localPath =
+                                saveBitmap(context = context, bitmap = it, id = photo.id)
+                            photoDatabase.photoDao.updatePhotos(
+                                EntityPhoto(
+                                    id = photo.id,
+                                    url = photo.urls.regular,
+                                    createdAt = photo.createdAt,
+                                    updatedAt = photo.updatedAt,
+                                    localPath = localPath
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }

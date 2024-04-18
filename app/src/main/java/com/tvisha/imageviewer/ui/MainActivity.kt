@@ -1,32 +1,27 @@
 package com.tvisha.imageviewer.ui
 
+
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.media.Image
+import android.graphics.Canvas
 import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.Log
-import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,33 +33,21 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.paging.compose.items
-
-
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
-import coil.compose.AsyncImagePainter
-import coil.compose.rememberAsyncImagePainter
+import androidx.paging.compose.collectAsLazyPagingItems
+import com.google.gson.Gson
 import com.tvisha.imageviewer.R
-import com.tvisha.imageviewer.TAG
+import com.tvisha.imageviewer.database.EntityPhoto
 import com.tvisha.imageviewer.ui.theme.ImageViewerTheme
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.io.FileInputStream
 import java.io.FileNotFoundException
-import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,7 +64,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
 
 
 @Composable
@@ -115,21 +97,36 @@ fun MainScreen() {
                                 .width(screenWidth / 2),
                         ) {
 
-                            if(photo.localPath.isBlank()){
+                            if (photo.localPath.isBlank()) {
+                                LaunchedEffect(key1 = Unit) {
+
+                                        Log.d("downloadPhoto", "localPath " + Gson().toJson(photo))
+
+                                        if (photo.localPath.isBlank()) {
+                                            Log.d(
+                                                "downloadPhoto",
+                                                "localPath is blank " + Gson().toJson(photo)
+                                            )
+
+                                            mainViewmodel.downloadPhoto(photo = photo)
+                                        }
+
+
+                                }
                                 CircularProgressIndicator(
                                     modifier = Modifier
                                         .padding(horizontal = 6.dp, vertical = 3.dp),
                                     color = MaterialTheme.colors.primary,
                                 )
-                            }else {
+                            } else {
                                 ImageListItem(
                                     context = LocalContext.current,
-                                    fileName = photo.localPath,
+                                    photo = photo,
                                     modifier = Modifier
                                         .padding(horizontal = 6.dp, vertical = 3.dp)
                                         .height(screenHeight / 4)
                                         .width(screenWidth / 2)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(8.dp)),
                                 )
                             }
 
@@ -279,10 +276,39 @@ fun loadImageFromInternalStorage(context: Context, fileName: String): Bitmap? {
     }
 }
 
+private fun getBitmapFromImage(context: Context, drawable: Int): Bitmap {
+    val db = ContextCompat.getDrawable(context, drawable)
+    val bit = Bitmap.createBitmap(
+        db!!.intrinsicWidth, db.intrinsicHeight, Bitmap.Config.ARGB_8888
+    )
+    val canvas = Canvas(bit)
+    db.setBounds(0, 0, canvas.width, canvas.height)
+    db.draw(canvas)
+    return bit
+}
+
 @Composable
-fun ImageListItem(context: Context, fileName: String, modifier: Modifier) {
-    val bitmap = loadImageFromInternalStorage(context =context, fileName = fileName)
-    bitmap?.let {
+fun ImageListItem(
+    context: Context,
+    photo: EntityPhoto,
+    modifier: Modifier,
+) {
+    var bitmap by remember {
+        mutableStateOf(getBitmapFromImage(context = context, drawable = R.drawable.default_pic))
+    }
+    LaunchedEffect(key1 = Unit) {
+        Log.d("downloadPhoto", "localPath " + Gson().toJson(photo))
+
+
+        withContext(Dispatchers.IO) {
+            loadImageFromInternalStorage(context = context, fileName = photo.localPath)?.let {
+                bitmap = it
+            }
+        }
+
+
+    }
+    bitmap.let {
         val painter: Painter = BitmapPainter(bitmap.asImageBitmap())
         Image(
             painter = painter,

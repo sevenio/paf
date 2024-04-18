@@ -1,5 +1,5 @@
-# Used Retrofit library to perform networking related operations
-# Used Room library to perform database related operations
-# Used Paging 3 library to perform pagination.
-# Implemented manual dependency injection.
-# Used Jetpack compose for UI. 
+Using retrofit for network operations
+Using room for database related operations
+Using paging 3 library for pagination
+Using Compose for building UI
+Used android studio hedgehog for making this project.

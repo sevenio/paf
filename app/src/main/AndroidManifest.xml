@@ -26,13 +26,7 @@
 
             </intent-filter>
         </activity>
-        <activity
-            android:name=".ui.SampleActivity"
-            android:exported="true"
-            android:theme="@style/Theme.ImageAppViewer">
 
-
-        </activity>
     </application>
 
 </manifest>

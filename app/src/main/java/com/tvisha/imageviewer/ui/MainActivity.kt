@@ -40,7 +40,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
+import com.google.gson.Gson
 import com.tvisha.imageviewer.R
+import com.tvisha.imageviewer.database.EntityPhoto
 import com.tvisha.imageviewer.ui.theme.ImageViewerTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -62,7 +64,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
 
 
 @Composable
@@ -96,21 +97,36 @@ fun MainScreen() {
                                 .width(screenWidth / 2),
                         ) {
 
-                            if(photo.localPath.isBlank()){
+                            if (photo.localPath.isBlank()) {
+                                LaunchedEffect(key1 = Unit) {
+
+                                        Log.d("downloadPhoto", "localPath " + Gson().toJson(photo))
+
+                                        if (photo.localPath.isBlank()) {
+                                            Log.d(
+                                                "downloadPhoto",
+                                                "localPath is blank " + Gson().toJson(photo)
+                                            )
+
+                                            mainViewmodel.downloadPhoto(photo = photo)
+                                        }
+
+
+                                }
                                 CircularProgressIndicator(
                                     modifier = Modifier
                                         .padding(horizontal = 6.dp, vertical = 3.dp),
                                     color = MaterialTheme.colors.primary,
                                 )
-                            }else {
+                            } else {
                                 ImageListItem(
                                     context = LocalContext.current,
-                                    fileName = photo.localPath,
+                                    photo = photo,
                                     modifier = Modifier
                                         .padding(horizontal = 6.dp, vertical = 3.dp)
                                         .height(screenHeight / 4)
                                         .width(screenWidth / 2)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(8.dp)),
                                 )
                             }
 
@@ -272,16 +288,24 @@ private fun getBitmapFromImage(context: Context, drawable: Int): Bitmap {
 }
 
 @Composable
-fun ImageListItem(context: Context, fileName: String, modifier: Modifier) {
-    var bitmap by remember{
-        mutableStateOf(getBitmapFromImage(context = context , drawable = R.drawable.default_pic))
+fun ImageListItem(
+    context: Context,
+    photo: EntityPhoto,
+    modifier: Modifier,
+) {
+    var bitmap by remember {
+        mutableStateOf(getBitmapFromImage(context = context, drawable = R.drawable.default_pic))
     }
-    LaunchedEffect(key1 = Unit){
-            withContext(Dispatchers.IO) {
-                loadImageFromInternalStorage(context = context, fileName = fileName)?.let {
-                    bitmap = it
-                }
+    LaunchedEffect(key1 = Unit) {
+        Log.d("downloadPhoto", "localPath " + Gson().toJson(photo))
+
+
+        withContext(Dispatchers.IO) {
+            loadImageFromInternalStorage(context = context, fileName = photo.localPath)?.let {
+                bitmap = it
             }
+        }
+
 
     }
     bitmap.let {

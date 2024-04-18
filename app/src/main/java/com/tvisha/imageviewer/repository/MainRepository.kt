@@ -11,6 +11,7 @@ import androidx.paging.ExperimentalPagingApi
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import com.google.gson.Gson
 import com.tvisha.imageviewer.MainApplication
 import com.tvisha.imageviewer.TAG
 import com.tvisha.imageviewer.database.EntityPhoto
@@ -54,8 +55,8 @@ class MainRepository(private val application: MainApplication) {
         Pager(
             config = PagingConfig(
                 pageSize = PAGE_SIZE,
-                prefetchDistance = 10,
-                initialLoadSize = PAGE_SIZE,
+                prefetchDistance = 3* PAGE_SIZE,
+                initialLoadSize = 2 * PAGE_SIZE,
             ),
             pagingSourceFactory = {
                 photoDatabase.photoDao.getPhotosPagingList()
@@ -68,19 +69,21 @@ class MainRepository(private val application: MainApplication) {
         ).flow
 
 
-    private suspend fun photoDownloadTask(context: Context, photo: Photos) {
+     suspend fun photoDownloadTask(photo: EntityPhoto) {
 
+         Log.d("downloadPhoto", "task "+ Gson().toJson(photo))
 
         if (!photoDatabase.photoDao.isLocalPathExists(photo.id)) {
+            Log.d("downloadPhoto", "not exists "+ Gson().toJson(photo))
 
-            val bitmap = downloadPhoto(photo.urls.regular)
+            val bitmap = downloadPhoto(photo.url)
             bitmap?.let {
                 val localPath =
-                    saveBitmap(context = context, bitmap = it, id = photo.id)
+                    saveBitmap(context = application, bitmap = it, id = photo.id)
                 photoDatabase.photoDao.updatePhotos(
                     EntityPhoto(
                         id = photo.id,
-                        url = photo.urls.regular,
+                        url = photo.url,
                         createdAt = photo.createdAt,
                         updatedAt = photo.updatedAt,
                         localPath = localPath

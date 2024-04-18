@@ -83,23 +83,19 @@ class PhotosRemoteMediator(
                 }
 
                 photoDatabase.remoteKeysDao.insertAll(remoteKeys)
-                apiResponse.map {
-                    val updatedObject = EntityPhotoUpdate(
+                val entityPhotoList = apiResponse.map {
+                   EntityPhoto(
                         id = it.id,
                         createdAt = it.createdAt,
                         updatedAt = it.updatedAt,
-                        url = it.urls.regular
+                        url = it.urls.regular,
+                        localPath = ""
                     )
-                    photoDatabase.photoDao.update(updatedObject)
-                    updatedObject
                 }
+                photoDatabase.photoDao.insertPhotos(entityPhotosList = entityPhotoList)
+
             }
 
-            MainScope().launch(Dispatchers.IO) {
-                photoDownloadTask(
-                    context, apiResponse
-                )
-            }
 
             return MediatorResult.Success(endOfPaginationReached = endOfPaginationReached)
 
@@ -122,61 +118,4 @@ class PhotosRemoteMediator(
         }
     }
 
-    private suspend fun photoDownloadTask(context: Context, photosList: ArrayList<Photos>){
-
-            photosList.forEach { photo ->
-                withContext(Dispatchers.IO) {
-                    Log.d("ganga" , Gson().toJson(photo) + "${photoDatabase.photoDao.isLocalPathExists(photo.id)}")
-                    if (!photoDatabase.photoDao.isLocalPathExists(photo.id)) {
-                        Log.d("ganga" , "doenst exist " + Gson().toJson(photo) )
-
-                        val bitmap = downloadPhoto(photo.urls.regular)
-                        bitmap?.let {
-                            val localPath =
-                                saveBitmap(context = context, bitmap = it, id = photo.id)
-                            photoDatabase.photoDao.updatePhotos(
-                                EntityPhoto(
-                                    id = photo.id,
-                                    url = photo.urls.regular,
-                                    createdAt = photo.createdAt,
-                                    updatedAt = photo.updatedAt,
-                                    localPath = localPath
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-    }
-
-    private fun downloadPhoto(imageUrl: String): Bitmap? {
-        Log.d(TAG, "download $imageUrl")
-
-        return try {
-            val url = URL(imageUrl)
-            val connection: HttpURLConnection = url.openConnection() as HttpURLConnection
-            connection.doInput = true
-            connection.connect()
-            val input: InputStream = connection.inputStream
-            BitmapFactory.decodeStream(input)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error downloading image: " + "$e")
-            null
-        }
-    }
-
-    private fun saveBitmap(context: Context, bitmap: Bitmap, id: String): String {
-        Log.d(TAG, "save $id")
-
-        return try {
-            val outputStream: FileOutputStream = context.openFileOutput("image_${id}.png", Context.MODE_PRIVATE)
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-            outputStream.close()
-            return "image_${id}.png"
-        } catch (e: java.lang.Exception) {
-            Log.e(TAG, "Error saving bitmap to internal storage: " + e.message)
-            ""
-        }
-    }
 }

@@ -7,8 +7,8 @@ import androidx.room.*
 @Dao
 interface PhotoDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertPhotos(entityCallLogs: List<EntityPhoto>)
+    @Upsert
+    suspend fun insertPhotos(entityPhotosList: List<EntityPhoto>)
 
     @Upsert(entity = EntityPhoto::class)
     fun update(obj: EntityPhotoUpdate)
